@@ -6,13 +6,21 @@ from utils import *
 
 class Handler(asyncore.dispatcher_with_send):
     def handle_read(self):
-        data = self.recv(8192)
+        data = self.recv(1024)
         if data:
-            method, path = request_parser(data)
+            method, path, version = request_parser(data)
             response = find_file(path)
+            length = response['file'].__len__()
+            print length
 
-            self.send('HTTP/1.0 ' + response['status'] + '\n')
-            self.send('Content-Type: ' + response['type_res'] + ' \n')
+            #http_v = 'HTTP/{0} {1}'.format(version, response['status'])
+            #length_data = 'Content-Length: {}\r\n'.format(length)
+            #content_type = 'Content-Type: {} \r'.format(response['type_res'])
+
+            self.send('HTTP/{0} {1}\r\n'.format(version, response['status']))
+            self.send('Content-Length: {}\r\n'.format(length))
+            self.send('Content-Type: ' + response['type_res'] + ' \r\n')
+            #self.send('\n'.join([http_v, content_type]))
             self.send('\n')
             self.send(response['file'])
             self.close()
@@ -59,7 +67,7 @@ def main():
 
         print _c_flag
         print 'For server stopping press Ctrl^C '
-        server = Server('127.0.0.1', 8080)
+        server = Server('127.0.0.1', 8000)
         asyncore.loop(0.1, True)
     except KeyboardInterrupt:
         print '\nBye :-*'

@@ -23,17 +23,18 @@ def set_document_root(root_dir):
 
 def request_parser(request):
     udata = request.decode('utf8')
-    pattern = '(GET|HEAD)\s(/.+)\sHTTP'
+    pattern = '(GET|HEAD)\s(/.+)\sHTTP/([.0-9]+)'
     result = re.findall(pattern, udata)
 
     if result.__len__() != 1:
-        return None, None
+        return None, None, None
     method = result[0][0]
     path = result[0][1]
+    version = result[0][2]
     print method
     print path
     path = urllib.unquote(path)
-    return method, path
+    return method, path, version
 
 
 def find_file(file_path):
