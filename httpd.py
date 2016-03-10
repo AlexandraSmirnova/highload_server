@@ -6,24 +6,32 @@ from utils import *
 
 class Handler(asyncore.dispatcher_with_send):
     def handle_read(self):
-        data = self.recv(1024)
-        if data:
-            method, path, version = request_parser(data)
-            response = find_file(path)
-            length = response['file'].__len__()
-            print length
 
-            #http_v = 'HTTP/{0} {1}'.format(version, response['status'])
-            #length_data = 'Content-Length: {}\r\n'.format(length)
-            #content_type = 'Content-Type: {} \r'.format(response['type_res'])
+        data = recieve_data(self)
+        method, path, version = request_parser(data)
 
-            self.send('HTTP/{0} {1}\r\n'.format(version, response['status']))
-            self.send('Content-Length: {}\r\n'.format(length))
-            self.send('Content-Type: ' + response['type_res'] + ' \r\n')
-            #self.send('\n'.join([http_v, content_type]))
+        if not method or not path or not version:
+            print 'none'
+            self.send(make_40x_response_header("405 Bad Gateway"))
+        response = find_file(path)
+        length = response['file'].__len__()
+        type_res = determinate_content_type(path)
+        print type_res
+
+        header = ""
+        header += 'HTTP/{0} {1}\r\n'.format(version, response['status'])
+        header += 'Date: {}\r\n'.format(get_date())
+        header += 'Server: {}\r\n'.format("AS Server")
+        header += 'Content-Length: {}\r\n'.format(length)
+        header += 'Content-Type: {}\r\n'.format(type_res)
+
+        print header
+        self.send(header)
+
+        if method == 'GET':
             self.send('\n')
-            self.send(response['file'])
-            self.close()
+            self.sendall(response['file'])
+        self.close()
 
 
 class Server(asyncore.dispatcher):
