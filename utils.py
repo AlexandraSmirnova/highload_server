@@ -5,6 +5,10 @@ import time
 
 DOCUMENT_ROOT = ''
 
+
+NCPU = 1
+
+
 CONTENT_TYPES = {
     None: 'text/plain',
     '.html': 'text/html',
@@ -16,6 +20,16 @@ CONTENT_TYPES = {
     '.gif': 'image/gif',
     '.swf': 'application/x-shockwave-flash'
 }
+
+
+def get_ncpu():
+    global NCPU
+    return NCPU
+
+
+def set_ncpu(count):
+    global NCPU
+    NCPU = count
 
 
 def set_document_root(root_dir):
@@ -44,7 +58,7 @@ def recieve_data(conn):
 
 def request_parser(request):
     udata = request.decode('utf8')
-    pattern = '(GET|HEAD)\s(/.+)\sHTTP/([.0-9]+)'
+    pattern = '(GET|HEAD|POST)\s(/.+)\sHTTP/([.0-9]+)'
     result = re.findall(pattern, udata)
 
     if result.__len__() != 1:

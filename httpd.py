@@ -3,6 +3,8 @@ import asyncore
 import socket
 from utils import *
 
+from multiprocessing import freeze_support, Process
+
 
 class Handler(asyncore.dispatcher_with_send):
     def handle_read(self):
@@ -10,27 +12,28 @@ class Handler(asyncore.dispatcher_with_send):
         data = recieve_data(self)
         method, path, version = request_parser(data)
 
-        if not method or not path or not version:
+        if not method or not path or not version or method == 'POST':
             print 'none'
             self.send(make_40x_response_header("405 Bad Gateway"))
-        response = find_file(path)
-        length = response['file'].__len__()
-        type_res = determinate_content_type(path)
-        print type_res
+        else:
+            response = find_file(path)
+            length = response['file'].__len__()
+            type_res = determinate_content_type(path)
+            print type_res
 
-        header = ""
-        header += 'HTTP/{0} {1}\r\n'.format(version, response['status'])
-        header += 'Date: {}\r\n'.format(get_date())
-        header += 'Server: {}\r\n'.format("AS Server")
-        header += 'Content-Length: {}\r\n'.format(length)
-        header += 'Content-Type: {}\r\n'.format(type_res)
+            header = ""
+            header += 'HTTP/{0} {1}\r\n'.format(version, response['status'])
+            header += 'Date: {}\r\n'.format(get_date())
+            header += 'Server: {}\r\n'.format("AS Server")
+            header += 'Content-Length: {}\r\n'.format(length)
+            header += 'Content-Type: {}\r\n'.format(type_res)
 
-        print header
-        self.send(header)
+            print header
+            self.send(header)
 
-        if method == 'GET':
-            self.send('\n')
-            self.sendall(response['file'])
+            if method == 'GET':
+                self.send('\n')
+                self.sendall(response['file'])
         self.close()
 
 
@@ -40,7 +43,7 @@ class Server(asyncore.dispatcher):
         self.create_socket(socket.AF_INET, socket.SOCK_STREAM)
         self.set_reuse_addr()
         self.bind((host, port))
-        self.listen(5)
+        self.listen(1)
 
     def handle_accept(self):
         pair = self.accept()
@@ -61,26 +64,38 @@ class Server(asyncore.dispatcher):
         asyncore.dispatcher.close(self)
 
 
-def main():
+if __name__ == '__main__':
     try:
         _r_flag = False
         _c_flag = False
         for param in sys.argv:
             if _r_flag:
                 set_document_root(param)
-            if param == '-r':
+                _r_flag = False
+            elif _c_flag:
+                try:
+                    set_ncpu(int(param))
+                except Exception as e:
+                    print "-c parameter should be int"
+                    raise Exception
+                _c_flag = False
+            elif param == '-r':
                 _r_flag = True
-            if param == '-c':
+            elif param == '-c':
                 _c_flag = True
 
-        print _c_flag
-        print 'For server stopping press Ctrl^C '
+        print 'Server started.. '
+        freeze_support()
         server = Server('127.0.0.1', 8000)
-        asyncore.loop(0.1, True)
+        process_list = []
+        for index in range(0, get_ncpu()):
+            print index
+            process_list.append(Process(target=asyncore.loop, args=(0.1, True)))
+        for index in range(0, get_ncpu()):
+            process_list[index].start()
+        for index in range(0, get_ncpu()):
+            process_list[index].join()
+            # asyncore.loop(0.1, True)
     except KeyboardInterrupt:
         print '\nBye :-*'
         sys.exit(0)
-
-
-if __name__ == '__main__':
-    main()
