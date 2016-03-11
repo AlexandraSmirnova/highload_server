@@ -1,6 +1,7 @@
 import sys
 import asyncore
 import socket
+import threading
 from utils import *
 
 from multiprocessing import freeze_support, Process
@@ -17,28 +18,31 @@ class Handler(asyncore.dispatcher_with_send):
             self.send(make_40x_response_header("405 Bad Gateway"))
         else:
             response = find_file(path)
+            if response['status'] != '200 OK':
+                self.send(make_40x_response_header(response['status']))
             length = response['file'].__len__()
             type_res = determinate_content_type(path)
             print type_res
 
-            header = ""
+            header = ''
             header += 'HTTP/{0} {1}\r\n'.format(version, response['status'])
+            header += 'Content-Length: {}\r\n'.format(length)
             header += 'Date: {}\r\n'.format(get_date())
             header += 'Server: {}\r\n'.format("AS Server")
-            header += 'Content-Length: {}\r\n'.format(length)
             header += 'Content-Type: {}\r\n'.format(type_res)
 
             print header
             self.send(header)
+            self.send('\r\n')
 
             if method == 'GET':
-                self.send('\n')
                 self.sendall(response['file'])
         self.close()
 
 
 class Server(asyncore.dispatcher):
     def __init__(self, host=None, port=0xB00B):
+        print("Server init")
         asyncore.dispatcher.__init__(self)
         self.create_socket(socket.AF_INET, socket.SOCK_STREAM)
         self.set_reuse_addr()
@@ -46,6 +50,9 @@ class Server(asyncore.dispatcher):
         self.listen(1)
 
     def handle_accept(self):
+        # print __name__
+        if hasattr( os, 'getppid' ):  # only available on Unix
+            print( '{0}:\tPID={1} PPID={2}'.format("Process", os.getpid(), os.getppid() ) )
         pair = self.accept()
         if pair is not None:
             sock, addr = pair
@@ -62,6 +69,11 @@ class Server(asyncore.dispatcher):
 
     def close(self):
         asyncore.dispatcher.close(self)
+
+
+class AsyncEventLoop(threading.Thread):
+    def run(self):
+        asyncore.loop()
 
 
 if __name__ == '__main__':
@@ -91,11 +103,15 @@ if __name__ == '__main__':
         for index in range(0, get_ncpu()):
             print index
             process_list.append(Process(target=asyncore.loop, args=(0.1, True)))
+            print process_list[index]
         for index in range(0, get_ncpu()):
             process_list[index].start()
         for index in range(0, get_ncpu()):
             process_list[index].join()
+
             # asyncore.loop(0.1, True)
+            # evLoop = AsyncEventLoop()
+            # evLoop.start()
     except KeyboardInterrupt:
         print '\nBye :-*'
         sys.exit(0)

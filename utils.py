@@ -5,9 +5,7 @@ import time
 
 DOCUMENT_ROOT = ''
 
-
 NCPU = 1
-
 
 CONTENT_TYPES = {
     None: 'text/plain',
@@ -57,31 +55,33 @@ def recieve_data(conn):
 
 
 def request_parser(request):
-    udata = request.decode('utf8')
-    pattern = '(GET|HEAD|POST)\s(/.+)\sHTTP/([.0-9]+)'
-    result = re.findall(pattern, udata)
-
+    request = urllib.unquote(request)
+    pattern = '(GET|HEAD)\s+([/\w\s\.$-]+)(\?([\w=&-]+))?\s+HTTP/([.0-9]+)'
+    result = re.findall(pattern, request)
     if result.__len__() != 1:
         return None, None, None
     method = result[0][0]
     path = result[0][1]
-    version = result[0][2]
+    version = result[0][4]
     print method
     print path
-    path = urllib.unquote(path)
+
     return method, path, version
 
 
 def find_file(file_path):
     full_path = DOCUMENT_ROOT + file_path
     print full_path
+    index_flag = 0
     # type_res = ''
 
     if len(re.findall(r'\.\w+$', full_path)) == 0:
         full_path += '/index.html'
+        index_flag = 1
 
     try:
-        if '..' in full_path:
+        elements = full_path.split("/")
+        if ".." in elements:
             raise IOError
         # type_res = urllib.urlopen(full_path).info().type
         my_file = open(full_path, 'r')
@@ -89,7 +89,10 @@ def find_file(file_path):
         my_file.close()
         status = '200 OK'
     except IOError:
-        status = '403 forbidden'
+        if index_flag:
+            status = '403 forbidden'
+        else:
+            status = '404 not found'
         my_string = status
     return {'status': status, 'file': my_string}
 
