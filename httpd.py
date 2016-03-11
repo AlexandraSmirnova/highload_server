@@ -1,7 +1,6 @@
 import sys
 import asyncore
 import socket
-import threading
 from utils import *
 
 from multiprocessing import freeze_support, Process
@@ -51,8 +50,8 @@ class Server(asyncore.dispatcher):
 
     def handle_accept(self):
         # print __name__
-        if hasattr( os, 'getppid' ):  # only available on Unix
-            print( '{0}:\tPID={1} PPID={2}'.format("Process", os.getpid(), os.getppid() ) )
+        if hasattr(os, 'getppid'):  # only available on Unix
+            print('{0}:\tPID={1} PPID={2}'.format("Process", os.getpid(), os.getppid()))
         pair = self.accept()
         if pair is not None:
             sock, addr = pair
@@ -69,11 +68,6 @@ class Server(asyncore.dispatcher):
 
     def close(self):
         asyncore.dispatcher.close(self)
-
-
-class AsyncEventLoop(threading.Thread):
-    def run(self):
-        asyncore.loop()
 
 
 if __name__ == '__main__':
@@ -101,17 +95,12 @@ if __name__ == '__main__':
         server = Server('127.0.0.1', 8000)
         process_list = []
         for index in range(0, get_ncpu()):
-            print index
             process_list.append(Process(target=asyncore.loop, args=(0.1, True)))
-            print process_list[index]
         for index in range(0, get_ncpu()):
             process_list[index].start()
         for index in range(0, get_ncpu()):
             process_list[index].join()
 
-            # asyncore.loop(0.1, True)
-            # evLoop = AsyncEventLoop()
-            # evLoop.start()
     except KeyboardInterrupt:
         print '\nBye :-*'
         sys.exit(0)
