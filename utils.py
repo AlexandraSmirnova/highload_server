@@ -1,45 +1,6 @@
 import os
-import re
 import urllib
 import time
-
-DOCUMENT_ROOT = ''
-
-NCPU = 1
-
-CONTENT_TYPES = {
-    None: 'text/plain',
-    '.html': 'text/html',
-    '.css': 'text/css',
-    '.js': 'application/javascript',
-    '.jpg': 'image/jpeg',
-    '.jpeg': 'image/jpeg',
-    '.png': 'image/png',
-    '.gif': 'image/gif',
-    '.swf': 'application/x-shockwave-flash'
-}
-
-
-def get_ncpu():
-    global NCPU
-    return NCPU
-
-
-def set_ncpu(count):
-    global NCPU
-    NCPU = count
-
-
-def set_document_root(root_dir):
-    global DOCUMENT_ROOT
-    if os.path.exists(root_dir):
-        if os.path.isdir(root_dir):
-            DOCUMENT_ROOT = root_dir
-        else:
-            raise OSError
-        print DOCUMENT_ROOT
-    else:
-        raise OSError
 
 
 def recieve_data(conn):
@@ -56,45 +17,52 @@ def recieve_data(conn):
 
 def request_parser(request):
     request = urllib.unquote(request)
-    pattern = '(GET|HEAD)\s+([/\w\s\.$-]+)(\?([\w=&-]+))?\s+HTTP/([.0-9]+)'
-    result = re.findall(pattern, request)
-    if result.__len__() != 1:
+
+    strings_of_req = request.split('\r')
+    request = strings_of_req[0].split(' ')
+    method = request[0]
+
+    if method != 'GET' and method != 'HEAD':
         return None, None, None
-    method = result[0][0]
-    path = result[0][1]
-    version = result[0][4]
-    print method
-    print path
+
+    path = ' '.join([item for item in request[1:len(request) - 1]])
+    new_path = path.split('/')
+    query_string = new_path[len(new_path)-1].split('?')
+    if len(query_string) > 1:
+        index_q = path.rindex(query_string[1])
+        path = path[:index_q - 1]
+    index_v = request[len(request) - 1].find('/')
+    if index_v != -1:
+        version = request[len(request) - 1][index_v + 1:]
+
+    print "***************************"
+    print 'Method: ' + method
+    print 'Path: ' + path
+    print 'Version: ' + version
 
     return method, path, version
 
 
-def find_file(file_path):
-    full_path = DOCUMENT_ROOT + file_path
-    print full_path
-    index_flag = 0
-    # type_res = ''
-
-    if len(re.findall(r'\.\w+$', full_path)) == 0:
-        full_path += '/index.html'
-        index_flag = 1
+def find_file(path):
+    type_res = 'text/html'
 
     try:
-        elements = full_path.split("/")
+        path = check_path(path)
+        elements = path.split("/")
         if ".." in elements:
             raise IOError
-        # type_res = urllib.urlopen(full_path).info().type
-        my_file = open(full_path, 'r')
+        type_res = urllib.urlopen(path).info().type
+        my_file = open(path, 'r')
         my_string = my_file.read()
         my_file.close()
         status = '200 OK'
     except IOError:
-        if index_flag:
-            status = '403 forbidden'
-        else:
-            status = '404 not found'
+        status = '404 not found'
         my_string = status
-    return {'status': status, 'file': my_string}
+    except OSError:
+        status = '403 forbidden'
+        my_string = status
+    return {'status': status, 'file': my_string, 'type_res': type_res}
 
 
 def make_40x_response_header(response):
@@ -102,18 +70,19 @@ def make_40x_response_header(response):
     return header
 
 
-def determinate_content_type(path):
-    pattern = r'\.([\w]{1,5})$'
-    type_ = re.search(pattern, path)
-    if type_:
-        try:
-            return CONTENT_TYPES[type_.group(0)]
-        except KeyError:
-            return CONTENT_TYPES[None]
-    else:
-        return CONTENT_TYPES['.html']
-
-
 def get_date():
     timestamp = time.time()
     return time.strftime("%a, %d %b %Y %I:%M:%S %p %Z", time.gmtime(timestamp))
+
+
+def check_path(path):
+    if os.path.exists(path):
+        if os.path.isdir(path):
+            path += '/index.html'
+            if not os.path.isfile(path):
+                raise OSError
+        else:
+            return path
+    else:
+        raise IOError
+    return path

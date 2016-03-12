@@ -5,6 +5,31 @@ from utils import *
 
 from multiprocessing import freeze_support, Process
 
+DOCUMENT_ROOT = ''
+
+class Info(object):
+    document_root = ''
+    ncpu = 1
+
+    def get_ncpu(self):
+        return self.ncpu
+
+    def get_document_root(self):
+        return self.document_root
+
+    def set_ncpu(self, count):
+        self.ncpu = count
+
+    def set_document_root(self, root_dir):
+        if os.path.exists(root_dir):
+            if os.path.isdir(root_dir):
+                self.document_root = root_dir
+            else:
+                raise OSError
+            print self.document_root
+        else:
+            raise OSError
+
 
 class Handler(asyncore.dispatcher_with_send):
     def handle_read(self):
@@ -12,30 +37,28 @@ class Handler(asyncore.dispatcher_with_send):
         data = recieve_data(self)
         method, path, version = request_parser(data)
 
-        if not method or not path or not version or method == 'POST':
-            print 'none'
+        if not method or not path or not version:
             self.send(make_40x_response_header("405 Bad Gateway"))
         else:
-            response = find_file(path)
+            response = find_file(DOCUMENT_ROOT + path)
             if response['status'] != '200 OK':
                 self.send(make_40x_response_header(response['status']))
-            length = response['file'].__len__()
-            type_res = determinate_content_type(path)
-            print type_res
+            else:
+                length = response['file'].__len__()
 
-            header = ''
-            header += 'HTTP/{0} {1}\r\n'.format(version, response['status'])
-            header += 'Content-Length: {}\r\n'.format(length)
-            header += 'Date: {}\r\n'.format(get_date())
-            header += 'Server: {}\r\n'.format("AS Server")
-            header += 'Content-Type: {}\r\n'.format(type_res)
+                header = ''
+                header += 'HTTP/{0} {1}\r\n'.format(version, response['status'])
+                header += 'Content-Length: {}\r\n'.format(length)
+                header += 'Date: {}\r\n'.format(get_date())
+                header += 'Server: {}\r\n'.format("AS Server")
+                header += 'Content-Type: {}\r\n'.format(response['type_res'])
 
-            print header
-            self.send(header)
-            self.send('\r\n')
+                print header
+                self.send(header)
+                self.send('\r\n')
 
-            if method == 'GET':
-                self.sendall(response['file'])
+                if method == 'GET':
+                    self.sendall(response['file'])
         self.close()
 
 
@@ -72,15 +95,17 @@ class Server(asyncore.dispatcher):
 
 if __name__ == '__main__':
     try:
+        info = Info()
         _r_flag = False
         _c_flag = False
         for param in sys.argv:
             if _r_flag:
-                set_document_root(param)
+                info.set_document_root(param)
+                DOCUMENT_ROOT = info.get_document_root()
                 _r_flag = False
             elif _c_flag:
                 try:
-                    set_ncpu(int(param))
+                    info.set_ncpu(int(param))
                 except Exception as e:
                     print "-c parameter should be int"
                     raise Exception
@@ -94,11 +119,11 @@ if __name__ == '__main__':
         freeze_support()
         server = Server('127.0.0.1', 8000)
         process_list = []
-        for index in range(0, get_ncpu()):
+        for index in range(0, info.get_ncpu()):
             process_list.append(Process(target=asyncore.loop, args=(0.1, True)))
-        for index in range(0, get_ncpu()):
+        for index in range(0, info.get_ncpu()):
             process_list[index].start()
-        for index in range(0, get_ncpu()):
+        for index in range(0, info.get_ncpu()):
             process_list[index].join()
 
     except KeyboardInterrupt:
