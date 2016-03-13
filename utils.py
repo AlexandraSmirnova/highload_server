@@ -25,12 +25,18 @@ def request_parser(request):
     if method != 'GET' and method != 'HEAD':
         return None, None, None
 
+    # parse path
     path = ' '.join([item for item in request[1:len(request) - 1]])
     new_path = path.split('/')
-    query_string = new_path[len(new_path)-1].split('?')
+
+    # checking if query in path
+    query_string = new_path[len(new_path) - 1].split('?')
     if len(query_string) > 1:
         index_q = path.rindex(query_string[1])
         path = path[:index_q - 1]
+
+    # parse version
+    version = '1.0'
     index_v = request[len(request) - 1].find('/')
     if index_v != -1:
         version = request[len(request) - 1][index_v + 1:]
@@ -39,18 +45,18 @@ def request_parser(request):
     print 'Method: ' + method
     print 'Path: ' + path
     print 'Version: ' + version
-
     return method, path, version
 
 
 def find_file(path):
+    # default content-type
     type_res = 'text/html'
 
     try:
-        path = check_path(path)
-        elements = path.split("/")
-        if ".." in elements:
-            raise IOError
+        # checking path
+        path = check_path_exists(path)
+        check_path_security(path)
+        # define content-type
         type_res = urllib.urlopen(path).info().type
         my_file = open(path, 'r')
         my_string = my_file.read()
@@ -75,7 +81,7 @@ def get_date():
     return time.strftime("%a, %d %b %Y %I:%M:%S %p %Z", time.gmtime(timestamp))
 
 
-def check_path(path):
+def check_path_exists(path):
     if os.path.exists(path):
         if os.path.isdir(path):
             path += '/index.html'
@@ -86,3 +92,9 @@ def check_path(path):
     else:
         raise IOError
     return path
+
+
+def check_path_security(path):
+    elements = path.split("/")
+    if ".." in elements:
+        raise IOError

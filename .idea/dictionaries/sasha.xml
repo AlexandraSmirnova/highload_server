@@ -1,7 +1,10 @@
 <component name="ProjectDictionaryState">
   <dictionary name="sasha">
     <words>
+      <w>addr</w>
+      <w>getppid</w>
       <w>ncpu</w>
+      <w>ppid</w>
       <w>recieve</w>
       <w>udata</w>
     </words>
